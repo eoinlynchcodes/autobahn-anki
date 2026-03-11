@@ -183,6 +183,49 @@ export default function ImportPage() {
             </div>
           )}
         </div>
+
+        <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="font-semibold text-lg mb-3">Where to find Anki decks</h2>
+          <div className="space-y-4 text-sm text-gray-600">
+            <div>
+              <h3 className="font-medium text-gray-900 mb-1">AnkiWeb Shared Decks</h3>
+              <p className="mb-2">
+                The largest free collection of community-made flashcard decks.
+                Browse by language and topic.
+              </p>
+              <a
+                href="https://ankiweb.net/shared/decks"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                ankiweb.net/shared/decks &rarr;
+              </a>
+            </div>
+
+            <div>
+              <h3 className="font-medium text-gray-900 mb-1">Export from Anki desktop</h3>
+              <p>
+                If you already use Anki, open it and go to <strong>File &rarr; Export</strong>.
+                Choose &quot;Anki Deck Package (.apkg)&quot; and select the deck you want.
+                Then upload that .apkg file here.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-medium text-gray-900 mb-1">Create your own CSV</h3>
+              <p>
+                Make a spreadsheet with two columns: the word/phrase in your target
+                language and its translation. Save as .csv or .tsv and import it here.
+              </p>
+              <div className="mt-2 bg-gray-50 rounded-lg p-3 font-mono text-xs">
+                Guten Morgen, Good morning<br />
+                Entschuldigung, Excuse me<br />
+                Wie geht es Ihnen?, How are you?
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </AppShell>
   );
