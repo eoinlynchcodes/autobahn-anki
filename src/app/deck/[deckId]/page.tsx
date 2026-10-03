@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AppShell from "@/components/app-shell";
+import GrowDeckPanel from "@/components/grow-deck-panel";
 import type { Card, Deck } from "@/lib/types";
 
 export default function DeckBrowsePage() {
@@ -16,6 +17,7 @@ export default function DeckBrowsePage() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showGrow, setShowGrow] = useState(false);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
 
@@ -85,13 +87,25 @@ export default function DeckBrowsePage() {
           </button>
           <h1 className="text-2xl font-bold">{deck?.name || "..."}</h1>
         </div>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
-        >
-          {showAdd ? "Cancel" : "Add Card"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowGrow(!showGrow)}
+            className="bg-white border border-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
+          >
+            {showGrow ? "Close" : "Grow with Claude"}
+          </button>
+          <button
+            onClick={() => setShowAdd(!showAdd)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+          >
+            {showAdd ? "Cancel" : "Add Card"}
+          </button>
+        </div>
       </div>
+
+      {showGrow && (
+        <GrowDeckPanel deckId={deckId} onCardsChanged={loadCards} />
+      )}
 
       {showAdd && (
         <form
@@ -147,9 +161,16 @@ export default function DeckBrowsePage() {
             >
               <div className="flex items-center gap-4">
                 <span className="text-xs text-gray-300 w-6">{i + 1}</span>
-                <span className="font-medium">{card.front}</span>
-                <span className="text-gray-400">&mdash;</span>
-                <span className="text-gray-600">{card.back}</span>
+                <div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium">{card.front}</span>
+                    <span className="text-gray-400">&mdash;</span>
+                    <span className="text-gray-600">{card.back}</span>
+                  </div>
+                  {card.notes && (
+                    <p className="text-xs text-gray-400 mt-1">{card.notes}</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-400">

@@ -228,6 +228,11 @@ export default function ReviewPage() {
             <>
               <hr className="w-16 my-4 border-gray-200" />
               <p className="text-xl text-gray-600">{currentCard?.back}</p>
+              {currentCard?.notes && (
+                <p className="text-sm text-gray-400 mt-3">
+                  {currentCard.notes}
+                </p>
+              )}
             </>
           )}
           {!showAnswer && (
