@@ -202,12 +202,14 @@ export default function DashboardPage() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                     deck.due_count > 0
                       ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-gray-100 text-gray-400 cursor-default"
+                      : "bg-blue-50 text-blue-700 hover:bg-blue-100"
                   }`}
                 >
                   {deck.due_count > 0
                     ? `Review (${deck.due_count})`
-                    : "All caught up"}
+                    : deck.card_count > 0
+                      ? "Keep studying"
+                      : "Add cards"}
                 </Link>
                 <Link
                   href={`/deck/${deck.id}`}

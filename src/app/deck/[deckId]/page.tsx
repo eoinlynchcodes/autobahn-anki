@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AppShell from "@/components/app-shell";
 import type { Card, Deck } from "@/lib/types";
@@ -9,13 +9,14 @@ import type { Card, Deck } from "@/lib/types";
 export default function DeckBrowsePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const deckId = params.deckId as string;
   const supabase = createClient();
 
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAdd, setShowAdd] = useState(searchParams.get("add") === "1");
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
 
