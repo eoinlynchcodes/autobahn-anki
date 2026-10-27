@@ -20,6 +20,19 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Admin: usage tracking
+
+`/admin` shows who is using the app, when, and which features they use (reviews, practice, AI card generation, grammar help, notebook, imports, ...), so you can see what's worth building on.
+
+To set it up:
+
+1. In the Supabase SQL Editor, run the **Usage tracking + admin** section at the bottom of `src/lib/supabase/schema.sql`. It creates the `activity_events` table and the admin-only reporting functions.
+2. Set these environment variables (e.g. in Vercel):
+   - `ADMIN_EMAILS`: comma-separated emails allowed to open `/admin`. Everyone else gets a 404.
+   - `SUPABASE_SERVICE_ROLE_KEY`: from Supabase → Project Settings → API. Server-only; never prefix it with `NEXT_PUBLIC_`.
+
+Events are logged with `logActivity` from `src/lib/activity.ts`. When you add a feature, add an event name there and log it, and it will show up on the admin page.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

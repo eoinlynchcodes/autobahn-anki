@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/activity";
 import AppShell from "@/components/app-shell";
 import type { Card, Deck } from "@/lib/types";
 
@@ -63,6 +64,7 @@ export default function DeckBrowsePage() {
       front: front.trim(),
       back: back.trim(),
     });
+    logActivity(supabase, "card_added");
 
     setFront("");
     setBack("");
@@ -71,6 +73,7 @@ export default function DeckBrowsePage() {
 
   async function deleteCard(cardId: string) {
     await supabase.from("cards").delete().eq("id", cardId);
+    logActivity(supabase, "card_deleted");
     loadCards();
   }
 

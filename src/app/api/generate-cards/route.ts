@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 // Writing a batch of cards can outlast the default function timeout
@@ -140,6 +141,10 @@ The deck has no cards yet. Write ${cardCount} cards that fit its name, with ${de
     console.error("Card insert error:", insertError);
     return NextResponse.json({ error: "Failed to save cards" }, { status: 500 });
   }
+
+  await logActivity(supabase, "cards_generated", {
+    metadata: { count: inserted.length },
+  });
 
   return NextResponse.json({ cards: inserted });
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/activity";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import { parseApkgFile, parseCsvContent } from "@/lib/anki-import";
@@ -89,6 +90,14 @@ export default function ImportPage() {
         if (cardError) throw cardError;
       }
 
+      logActivity(supabase, "deck_imported", {
+        metadata: {
+          format: file.name.split(".").pop()?.toLowerCase(),
+          cards: cards.length,
+          source_language: sourceLang,
+          target_language: targetLang,
+        },
+      });
       setStatus(`Imported ${cards.length} cards!`);
       setTimeout(() => router.push("/dashboard"), 1000);
     } catch (err) {

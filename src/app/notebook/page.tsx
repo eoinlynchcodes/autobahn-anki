@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/activity";
 import AppShell from "@/components/app-shell";
 import type { NotebookEntry } from "@/lib/types";
 
@@ -49,6 +50,7 @@ export default function NotebookPage() {
       language_from: langFrom,
       language_to: langTo,
     });
+    logActivity(supabase, "notebook_entry_added");
 
     setTerm("");
     setTranslation("");
@@ -59,6 +61,7 @@ export default function NotebookPage() {
 
   async function deleteEntry(id: string) {
     await supabase.from("notebook").delete().eq("id", id);
+    logActivity(supabase, "notebook_entry_deleted");
     loadEntries();
   }
 

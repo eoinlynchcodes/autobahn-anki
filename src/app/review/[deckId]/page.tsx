@@ -10,6 +10,7 @@ import {
   calculateNextReview,
   qualityFromButton,
 } from "@/lib/spaced-repetition";
+import { logActivity } from "@/lib/activity";
 
 type ReviewButton = "again" | "hard" | "good" | "easy";
 // "review" works through due cards and updates their schedule.
@@ -114,6 +115,7 @@ export default function ReviewPage() {
           last_reviewed: new Date().toISOString(),
         })
         .eq("id", currentCard.id);
+      logActivity(supabase, "card_reviewed", { metadata: { rating: button } });
 
       resetCard();
 
@@ -130,6 +132,7 @@ export default function ReviewPage() {
   const handlePractice = useCallback(
     (gotIt: boolean) => {
       if (!currentCard) return;
+      logActivity(supabase, "card_practiced", { metadata: { got_it: gotIt } });
 
       // Missed cards go to the back of the queue so they come up again this round
       const queue = gotIt ? cards : [...cards, currentCard];
@@ -143,6 +146,7 @@ export default function ReviewPage() {
         setCurrentIndex(currentIndex + 1);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentCard, currentIndex, cards]
   );
 
@@ -176,6 +180,7 @@ export default function ReviewPage() {
 
     if (cardData && cardData.length > 0) {
       startSession("practice", shuffle(cardData));
+      logActivity(supabase, "practice_started");
     }
     setLoading(false);
   }
@@ -219,6 +224,7 @@ export default function ReviewPage() {
       language_to: deck.target_language,
       source_card_id: currentCard.id,
     });
+    logActivity(supabase, "notebook_saved_from_card");
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

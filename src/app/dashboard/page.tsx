@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import AppShell from "@/components/app-shell";
 import Link from "next/link";
 import type { Deck } from "@/lib/types";
+import { logActivity } from "@/lib/activity";
 
 export default function DashboardPage() {
   const [decks, setDecks] = useState<(Deck & { card_count: number; due_count: number })[]>([]);
@@ -73,6 +74,9 @@ export default function DashboardPage() {
       source_language: sourceLang,
       target_language: targetLang,
     });
+    logActivity(supabase, "deck_created", {
+      metadata: { source_language: sourceLang, target_language: targetLang },
+    });
 
     setNewDeckName("");
     setShowCreate(false);
@@ -82,6 +86,7 @@ export default function DashboardPage() {
   async function deleteDeck(deckId: string) {
     if (!confirm("Delete this deck and all its cards?")) return;
     await supabase.from("decks").delete().eq("id", deckId);
+    logActivity(supabase, "deck_deleted");
     loadDecks();
   }
 
