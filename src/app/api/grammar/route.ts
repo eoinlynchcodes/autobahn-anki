@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 const anthropic = new Anthropic({
@@ -41,6 +42,10 @@ Break down any grammar rules, word order, conjugation, or interesting patterns. 
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
+    });
+
+    await logActivity(supabase, "grammar_asked", {
+      metadata: { custom_question: Boolean(question) },
     });
 
     const textContent = message.content.find((c) => c.type === "text");

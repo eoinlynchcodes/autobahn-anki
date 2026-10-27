@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity, normalizePath } from "@/lib/activity";
 
 const navItems = [
   { href: "/dashboard", label: "Decks" },
@@ -14,6 +16,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    logActivity(supabase, "page_view", { path: normalizePath(pathname) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
