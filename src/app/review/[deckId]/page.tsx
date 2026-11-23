@@ -10,6 +10,17 @@ import {
   calculateNextReview,
   qualityFromButton,
 } from "@/lib/spaced-repetition";
+import {
+  type StudyDirection,
+  STUDY_DIRECTIONS,
+  frontIsTargetLanguage,
+  languageName,
+  loadStudyPrefs,
+  saveAutoSpeak,
+  saveStudyDirection,
+  showBackFirst,
+} from "@/lib/card-direction";
+import { canSpeak, speak, stopSpeaking } from "@/lib/speech";
 
 type ReviewButton = "again" | "hard" | "good" | "easy";
 // "review" works through due cards and updates their schedule.
@@ -18,6 +29,27 @@ type SessionMode = "review" | "practice";
 
 const PRACTICE_ROUND_SIZE = 20;
 const GENERATE_COUNT = 10;
+// Cards sampled to work out which side of the deck is in which language
+const ORIENTATION_SAMPLE_SIZE = 50;
+
+function SpeakerIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M19 5a10 10 0 0 1 0 14" />
+    </svg>
+  );
+}
 
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
@@ -50,8 +82,30 @@ export default function ReviewPage() {
   const [done, setDone] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
+  const [direction, setDirection] = useState<StudyDirection>("target-first");
+  const [frontIsTarget, setFrontIsTarget] = useState(true);
+  const [autoSpeak, setAutoSpeak] = useState(false);
+  const [speechAvailable, setSpeechAvailable] = useState(false);
+  // Varies "mixed" directions between sessions
+  const [sessionSeed, setSessionSeed] = useState(0);
 
   const currentCard = cards[currentIndex] || null;
+
+  // Which side to ask, and which language each side is in
+  const backFirst = currentCard
+    ? showBackFirst(direction, frontIsTarget, currentCard.id, currentIndex, sessionSeed)
+    : false;
+  const promptText = backFirst ? currentCard?.back : currentCard?.front;
+  const answerText = backFirst ? currentCard?.front : currentCard?.back;
+  const promptIsTarget = backFirst !== frontIsTarget;
+  const targetText =
+    (frontIsTarget ? currentCard?.front : currentCard?.back) || "";
+  const sourceText =
+    (frontIsTarget ? currentCard?.back : currentCard?.front) || "";
+  const targetLanguage = deck?.target_language || "";
+  const sourceLanguage = deck?.source_language || "";
+  const promptLanguage = promptIsTarget ? targetLanguage : sourceLanguage;
+  const answerLanguage = promptIsTarget ? sourceLanguage : targetLanguage;
 
   useEffect(() => {
     async function load() {
@@ -67,11 +121,25 @@ export default function ReviewPage() {
       }
       setDeck(deckData);
 
-      const { count } = await supabase
+      const prefs = loadStudyPrefs();
+      setDirection(prefs.direction);
+      setAutoSpeak(prefs.autoSpeak);
+      setSpeechAvailable(canSpeak());
+      setSessionSeed(Math.random());
+
+      const { data: sample, count } = await supabase
         .from("cards")
-        .select("*", { count: "exact", head: true })
-        .eq("deck_id", deckId);
+        .select("front, back", { count: "exact" })
+        .eq("deck_id", deckId)
+        .limit(ORIENTATION_SAMPLE_SIZE);
       setTotalCards(count || 0);
+      setFrontIsTarget(
+        frontIsTargetLanguage(
+          sample || [],
+          deckData.target_language,
+          deckData.source_language
+        )
+      );
 
       const now = new Date().toISOString();
       const { data: cardData } = await supabase
@@ -104,27 +172,31 @@ export default function ReviewPage() {
         currentCard.repetitions
       );
 
-      await supabase
-        .from("cards")
-        .update({
-          ease_factor: schedule.easeFactor,
-          interval: schedule.interval,
-          repetitions: schedule.repetitions,
-          next_review: schedule.nextReview.toISOString(),
-          last_reviewed: new Date().toISOString(),
-        })
-        .eq("id", currentCard.id);
+      const update = {
+        ease_factor: schedule.easeFactor,
+        interval: schedule.interval,
+        repetitions: schedule.repetitions,
+        next_review: schedule.nextReview.toISOString(),
+        last_reviewed: new Date().toISOString(),
+      };
+      await supabase.from("cards").update(update).eq("id", currentCard.id);
+
+      // Missed cards come back at the end of this session until you get them,
+      // carrying their new schedule so the next rating builds on it
+      const missed = button === "again";
+      const queue = missed ? [...cards, { ...currentCard, ...update }] : cards;
+      if (missed) setCards(queue);
 
       resetCard();
 
-      if (currentIndex + 1 >= cards.length) {
+      if (currentIndex + 1 >= queue.length) {
         setDone(true);
       } else {
         setCurrentIndex(currentIndex + 1);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentCard, currentIndex, cards.length]
+    [currentCard, currentIndex, cards]
   );
 
   const handlePractice = useCallback(
@@ -213,8 +285,8 @@ export default function ReviewPage() {
 
     await supabase.from("notebook").insert({
       user_id: user.id,
-      term: currentCard.front,
-      translation: currentCard.back,
+      term: targetText,
+      translation: sourceText,
       language_from: deck.source_language,
       language_to: deck.target_language,
       source_card_id: currentCard.id,
@@ -234,8 +306,8 @@ export default function ReviewPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          front: currentCard.front,
-          back: currentCard.back,
+          front: targetText,
+          back: sourceText,
           question: customQuestion || "",
           sourceLanguage: deck.source_language,
           targetLanguage: deck.target_language,
@@ -250,6 +322,30 @@ export default function ReviewPage() {
     }
     setGrammarLoading(false);
   }
+
+  function chooseDirection(next: StudyDirection) {
+    setDirection(next);
+    saveStudyDirection(next);
+  }
+
+  function toggleAutoSpeak() {
+    const next = !autoSpeak;
+    setAutoSpeak(next);
+    saveAutoSpeak(next);
+    if (!next) stopSpeaking();
+  }
+
+  // Read the learned language aloud as soon as it's on screen: with the card
+  // when it's the question, or on reveal when it's the answer
+  const targetVisible = promptIsTarget || showAnswer;
+  const targetJustAppeared = promptIsTarget ? !showAnswer : showAnswer;
+  useEffect(() => {
+    if (!autoSpeak || done || !targetText || !targetJustAppeared) return;
+    speak(targetText, targetLanguage);
+    // currentIndex: a re-queued card shown twice in a row is spoken again
+  }, [autoSpeak, done, targetText, targetLanguage, targetJustAppeared, currentIndex]);
+
+  useEffect(() => () => stopSpeaking(), []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -398,17 +494,77 @@ export default function ReviewPage() {
           </span>
         </div>
 
+        {/* Which language to ask first, and audio */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div
+            role="radiogroup"
+            aria-label="Show first"
+            className="inline-flex rounded-lg bg-gray-100 p-0.5"
+          >
+            {STUDY_DIRECTIONS.map((option) => (
+              <button
+                key={option}
+                role="radio"
+                aria-checked={direction === option}
+                onClick={() => chooseDirection(option)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${
+                  direction === option
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {option === "target-first"
+                  ? `${languageName(targetLanguage)} first`
+                  : option === "source-first"
+                    ? `${languageName(sourceLanguage)} first`
+                    : "Mixed"}
+              </button>
+            ))}
+          </div>
+          {speechAvailable && (
+            <button
+              onClick={toggleAutoSpeak}
+              aria-pressed={autoSpeak}
+              title={`Read ${languageName(targetLanguage)} aloud automatically`}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                autoSpeak
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <SpeakerIcon />
+              Auto
+            </button>
+          )}
+        </div>
+
         {/* Card */}
         <div
           className="bg-white border border-gray-200 rounded-2xl p-8 text-center min-h-[200px] flex flex-col items-center justify-center cursor-pointer"
           onClick={() => !showAnswer && setShowAnswer(true)}
         >
-          <p className="text-2xl font-medium mb-2">{currentCard?.front}</p>
+          <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">
+            {languageName(promptLanguage)} &rarr; {languageName(answerLanguage)}
+          </p>
+          <p className="text-2xl font-medium mb-2">{promptText}</p>
           {showAnswer && (
             <>
               <hr className="w-16 my-4 border-gray-200" />
-              <p className="text-xl text-gray-600">{currentCard?.back}</p>
+              <p className="text-xl text-gray-600">{answerText}</p>
             </>
+          )}
+          {speechAvailable && targetVisible && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                speak(targetText, targetLanguage);
+              }}
+              aria-label={`Play ${languageName(targetLanguage)} audio`}
+              title={`Hear the ${languageName(targetLanguage)}`}
+              className="mt-3 p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+            >
+              <SpeakerIcon />
+            </button>
           )}
           {!showAnswer && (
             <p className="text-sm text-gray-400 mt-4">
